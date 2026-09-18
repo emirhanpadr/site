@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#030713">
+    <title>AUREL — Time, considered.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --ink: #030713;
+        --cream: #f0f3fa;
+        --paper: #d5ddea;
+        --acid: #75a4ff;
+        --line: rgba(238, 234, 226, .18);
+        --muted: rgba(238, 234, 226, .58);
+        --gold: #97a9d3;
+        --watch: #a6b4cc;
+        --watch-dark: #46536b;
+        --watch-dial: #07101f;
+        --ease: cubic-bezier(.22, 1, .36, 1);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--ink);
+        color: var(--cream);
+        font-family: "Manrope", Arial, sans-serif;
+        overflow-x: hidden;
+      }
+      body.menu-open, body.drawer-open { overflow: hidden; }
+      a { color: inherit; text-decoration: none; }
+      button { color: inherit; font: inherit; }
+      ::selection { background: var(--acid); color: var(--ink); }
+
+      .noise {
+        position: fixed; inset: 0; z-index: 20; pointer-events: none; opacity: .035;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      }
+      .cursor, .cursor-dot {
+        position: fixed; left: 0; top: 0; z-index: 99; pointer-events: none; border-radius: 50%;
+        transform: translate(-50%, -50%); mix-blend-mode: difference;
+      }
+      .cursor { width: 34px; height: 34px; border: 1px solid #fff; transition: width .25s var(--ease), height .25s var(--ease), background .25s; }
+      .cursor-dot { width: 5px; height: 5px; background: #fff; }
+      body.cursor-hover .cursor { width: 58px; height: 58px; background: rgba(255,255,255,.14); }
+
+      .preloader {
+        position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--ink); overflow: hidden;
+      }
+      .preloader.hide { animation: lift .9s var(--ease) forwards; }
+      .preloader-logo { overflow: hidden; font-size: clamp(3rem, 8vw, 8rem); font-weight: 700; letter-spacing: -.095em; }
+      .preloader-logo span { display: block; animation: preIn 1.25s var(--ease) forwards; }
+      .preload-line { position: absolute; bottom: 12vh; left: 8vw; right: 8vw; height: 1px; background: #222; }
+      .preload-line::after { content:""; display:block; height:100%; width:100%; background:var(--acid); transform-origin:left; animation: load 1.25s .15s var(--ease) forwards; }
+      @keyframes preIn { from { transform: translateY(120%); } to { transform: translateY(0); } }
+      @keyframes load { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+      @keyframes lift { to { transform: translateY(-105%); } }
+
+      .progress { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--acid); z-index: 90; }
+      .nav {
+        position: fixed; top: 0; left: 0; z-index: 50; width: 100%; height: 92px; display: flex; align-items: center; justify-content: space-between;
+        padding: 0 3.4vw; border-bottom: 1px solid transparent; transition: background .45s, border-color .45s, height .45s;
+      }
+      .nav.scrolled { height: 70px; background: rgba(10,10,11,.82); backdrop-filter: blur(16px); border-color: var(--line); }
+      .brand { position: relative; z-index: 2; font-weight: 700; letter-spacing: -.085em; font-size: 1.65rem; }
+      .brand small { display:inline-block; font: 400 .45rem/1 "DM Mono"; letter-spacing:.13em; vertical-align:top; margin:4px 0 0 3px; }
+      .nav-links { position:absolute; left:50%; transform:translateX(-50%); display:flex; gap:2.1rem; }
+      .nav-links a, .nav-actions button, .eyebrow, .mono { font: 500 .67rem/1 "DM Mono", monospace; letter-spacing:.1em; text-transform:uppercase; }
+      .nav-links a { color: var(--muted); transition: color .25s; }
+      .nav-links a:hover { color: var(--acid); }
+      .nav-actions { display:flex; align-items:center; gap:1rem; position:relative; z-index:2; }
+      .nav-actions button { border:0; background:transparent; padding: .5rem; cursor:pointer; }
+      .bag { display:flex; align-items:center; gap:.45rem; }
+      .bag-count { display:grid; place-items:center; width:17px; height:17px; border-radius:50%; background:var(--acid); color:var(--ink); font-size:.55rem; }
+      .menu-toggle { display:none; }
+
+      .hero { position:relative; min-height:100svh; padding: 130px 3.4vw 2.5rem; display:grid; grid-template-columns: 1fr 1.08fr 1fr; align-items:center; overflow:hidden; }
+      .hero::before { content:""; position:absolute; width:70vw; height:70vw; left:50%; top:48%; transform:translate(-50%,-50%); border-radius:50%; background:radial-gradient(circle, rgba(65,64,58,.65), rgba(10,10,11,0) 67%); }
+      .hero-topline { position:absolute; top:112px; left:3.4vw; right:3.4vw; display:flex; justify-content:space-between; color:var(--muted); }
+      .hero-copy { align-self:end; position:relative; z-index:1; padding-bottom:8vh; }
+      .hero-copy h1 { margin: .8rem 0 1.65rem; font: 500 clamp(3.7rem, 7.8vw, 9.2rem)/.82 "Playfair Display", Georgia, serif; letter-spacing:-.075em; }
+      .hero-copy h1 em { color:var(--acid); font-weight:500; }
+      .hero-copy p { max-width:250px; color:var(--muted); font-size:.78rem; line-height:1.7; margin:0; }
+      .hero-art { position:relative; z-index:1; width: min(48vw, 620px); aspect-ratio: .75; align-self:center; justify-self:center; }
+      .hero-art::before { content:""; position:absolute; inset:8% 5%; border-radius: 50%; background:radial-gradient(ellipse, rgba(212, 166, 100, .12), transparent 64%); filter:blur(5px); animation:pulse 5s ease-in-out infinite; }
+      @keyframes pulse { 50% { transform:scale(1.08); opacity:.55; } }
+      .watch-render { width:100%; height:100%; overflow:visible; filter: drop-shadow(0 40px 36px rgba(0,0,0,.65)); transform:rotate(9deg); transition: filter .7s var(--ease); }
+      .hero-art:hover .watch-render { filter: drop-shadow(-5px 50px 42px rgba(0,0,0,.9)); }
+      .watch-render .watch-metal { fill:url(#metal); transition:fill .55s ease; }
+      .watch-render .watch-dial { fill:var(--watch-dial); transition:fill .55s ease; }
+      .watch-render .watch-accent { stroke:var(--watch); transition:stroke .55s ease; }
+      .watch-render .watch-fill { fill:var(--watch); transition:fill .55s ease; }
+      .watch-render .hour, .watch-render .minute { transform-origin:250px 326px; stroke-linecap:round; }
+      .watch-render .hour { animation:tickHour 12s linear infinite; }
+      .watch-render .minute { animation:tickMinute 12s linear infinite; }
+      @keyframes tickHour { to { transform:rotate(30deg); } }
+      @keyframes tickMinute { to { transform:rotate(360deg); } }
+      .hero-side { align-self:end; padding-bottom:8vh; position:relative; z-index:2; justify-self:end; text-align:right; }
+      .hero-side .price { font:500 1.4rem "Playfair Display",serif; display:block; margin:.85rem 0 2.25rem; }
+      .round-button { width:104px; height:104px; display:grid; place-items:center; border:1px solid var(--cream); border-radius:50%; background:transparent; cursor:pointer; transition:background .4s var(--ease), color .4s, transform .4s; }
+      .round-button svg { width:18px; transition:transform .4s var(--ease); }
+      .round-button:hover { background:var(--acid); color:var(--ink); border-color:var(--acid); transform:rotate(-10deg); }
+      .round-button:hover svg { transform:translateY(5px); }
+      .hero-index { position:absolute; left:3.4vw; bottom:2.4rem; display:flex; align-items:center; gap:.8rem; z-index:2; }
+      .hero-index .track { width:86px; height:1px; background:#3b3b3c; position:relative; }
+      .hero-index .track::after { content:""; position:absolute; left:0; width:33%; height:100%; background:var(--acid); }
+      .vertical-copy { position:absolute; right:3.4vw; top:50%; transform:rotate(90deg) translateY(-50%); transform-origin:right top; color:var(--muted); white-space:nowrap; }
+
+      .marquee { padding: 1.6rem 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; }
+      .marquee-inner { display:inline-flex; gap:2.1rem; align-items:center; animation:marquee 23s linear infinite; font:500 clamp(1.8rem,3.3vw,4rem)/1 "Playfair Display",serif; letter-spacing:-.05em; }
+      .marquee em { color:var(--acid); }
+      .marquee .star { color:var(--gold); font:1.2rem "DM Mono"; }
+      @keyframes marquee { to { transform:translateX(-50%); } }
+
+      section { position:relative; }
+      .intro { min-height:90vh; padding:16vh 10vw 10vh; display:flex; flex-direction:column; justify-content:space-between; }
+      .section-label { display:flex; align-items:center; gap:.7rem; color:var(--muted); }
+      .section-label::before { content:""; width:24px; height:1px; background:var(--acid); }
+      .intro h2 { max-width:1000px; margin:0; font:500 clamp(2.9rem,6.3vw,7.3rem)/.98 "Playfair Display",serif; letter-spacing:-.065em; }
+      .intro h2 em { color:var(--gold); }
+      .intro-foot { align-self:flex-end; display:flex; gap:5rem; align-items:flex-end; max-width:570px; }
+      .intro-foot p { margin:0; color:var(--muted); font-size:.83rem; line-height:1.75; }
+      .text-link { display:inline-flex; align-items:center; gap:.6rem; padding-bottom:.5rem; border-bottom:1px solid currentColor; white-space:nowrap; font:500 .66rem "DM Mono"; letter-spacing:.1em; text-transform:uppercase; transition:color .25s; }
+      .text-link:hover { color:var(--acid); }
+      .text-link span { font-size:1.1rem; transition:transform .25s var(--ease); }
+      .text-link:hover span { transform:translateX(4px); }
+
+      .collection { background:var(--cream); color:var(--ink); padding: 8.5rem 3.4vw 7rem; overflow:hidden; }
+      .collection .section-label { color:rgba(10,10,11,.55); }
+      .collection-heading { display:flex; justify-content:space-between; gap:2rem; align-items:end; margin-bottom:5rem; }
+      .collection h2 { margin:.8rem 0 0; font:500 clamp(3rem,5vw,6rem)/.88 "Playfair Display",serif; letter-spacing:-.07em; }
+      .filters { display:flex; gap:.35rem; flex-wrap:wrap; }
+      .filter { padding:.7rem .9rem; border:1px solid rgba(10,10,11,.2); border-radius:99px; background:transparent; color:var(--ink); cursor:pointer; font:500 .62rem "DM Mono"; letter-spacing:.1em; text-transform:uppercase; transition:all .25s; }
+      .filter:hover, .filter.active { background:var(--ink); color:var(--cream); }
+      .product-grid { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid rgba(10,10,11,.2); }
+      .product { position:relative; min-height:570px; padding:1.4rem; border-right:1px solid rgba(10,10,11,.2); overflow:hidden; cursor:pointer; }
+      .product:last-child { border:0; }
+      .product[data-category="limited"]::after { content:"LIMITED"; position:absolute; right:1.2rem; top:1.3rem; border:1px solid rgba(10,10,11,.35); border-radius:99px; padding:.37rem .5rem; font:500 .55rem "DM Mono"; letter-spacing:.09em; }
+      .product-meta { position:relative; z-index:3; display:flex; justify-content:space-between; font:500 .61rem "DM Mono"; letter-spacing:.09em; }
+      .product-visual { position:absolute; inset:12% 5% 15%; display:grid; place-items:center; transition:transform .8s var(--ease); }
+      .product:hover .product-visual { transform:scale(1.08) rotate(-5deg); }
+      .mini-watch { width:min(90%,340px); filter:drop-shadow(0 28px 15px rgba(0,0,0,.2)); }
+      .product-info { position:absolute; z-index:3; left:1.4rem; right:1.4rem; bottom:1.4rem; display:flex; justify-content:space-between; align-items:end; }
+      .product-name { font:500 1.55rem/1 "Playfair Display",serif; letter-spacing:-.045em; display:block; }
+      .product-type { color:rgba(10,10,11,.58); font:400 .58rem "DM Mono"; letter-spacing:.08em; display:block; margin-top:.55rem; text-transform:uppercase; }
+      .product-price { font:500 .75rem "DM Mono"; }
+      .quick { position:absolute; z-index:5; left:50%; top:52%; opacity:0; transform:translate(-50%,-30%); width:82px; height:82px; border:0; border-radius:50%; background:var(--acid); color:var(--ink); cursor:pointer; font:500 .56rem "DM Mono"; letter-spacing:.06em; text-transform:uppercase; transition:opacity .35s, transform .5s var(--ease); }
+      .product:hover .quick { opacity:1; transform:translate(-50%,-50%); }
+
+      .atelier { min-height:100vh; display:grid; grid-template-columns: .95fr 1.05fr; background:#171717; }
+      .atelier-image { min-height:650px; position:relative; overflow:hidden; display:grid; place-items:center; background:radial-gradient(circle at 50% 45%, #69502f, #24211d 38%, #111 72%); }
+      .atelier-image::after { content:""; position:absolute; inset:0; background:linear-gradient(120deg, transparent 25%, rgba(255,255,255,.13) 46%, transparent 51%); transform:translateX(-120%); animation:shine 7s 1s ease-in-out infinite; }
+      @keyframes shine { 45%,100% { transform:translateX(130%); } }
+      .movement { width:min(84%,500px); animation:float 5s ease-in-out infinite; filter:drop-shadow(0 25px 26px #000); }
+      @keyframes float { 50% { transform:translateY(-20px) rotate(8deg); } }
+      .atelier-stamp { position:absolute; bottom:2.2rem; left:2.2rem; width:100px; height:100px; border:1px solid rgba(255,255,255,.4); border-radius:50%; display:grid; place-items:center; text-align:center; font:500 .48rem/1.35 "DM Mono"; letter-spacing:.08em; z-index:1; }
+      .atelier-copy { padding:clamp(3rem,8vw,9rem) 10%; display:flex; flex-direction:column; justify-content:center; }
+      .atelier-copy h2 { margin:1rem 0 1.8rem; max-width:540px; font:500 clamp(3rem,5vw,5.8rem)/.92 "Playfair Display",serif; letter-spacing:-.065em; }
+      .atelier-copy h2 em { color:var(--acid); }
+      .atelier-copy > p { max-width:410px; color:var(--muted); font-size:.83rem; line-height:1.85; }
+      .details { margin-top:3rem; border-top:1px solid var(--line); max-width:480px; }
+      .detail { border-bottom:1px solid var(--line); }
+      .detail button { width:100%; padding:1.2rem 0; display:flex; justify-content:space-between; border:0; background:transparent; text-align:left; cursor:pointer; font:500 .67rem "DM Mono"; letter-spacing:.08em; text-transform:uppercase; }
+      .detail button i { font-style:normal; color:var(--acid); font-size:1rem; transition:transform .3s; }
+      .detail p { display:grid; grid-template-rows:0fr; margin:0; color:var(--muted); font-size:.75rem; line-height:1.7; transition:grid-template-rows .4s var(--ease), padding .4s; }
+      .detail p span { overflow:hidden; }
+      .detail.open p { grid-template-rows:1fr; padding:0 1.8rem 1.2rem 0; }
+      .detail.open button i { transform:rotate(45deg); }
+
+      .configurator { min-height:100vh; padding:8rem 3.4vw 3rem; overflow:hidden; background:#0d0e0e; }
+      .config-head { display:flex; justify-content:space-between; align-items:end; gap:2rem; }
+      .config-head h2 { margin:.8rem 0 0; font:500 clamp(3rem,5vw,5.8rem)/.9 "Playfair Display",serif; letter-spacing:-.065em; }
+      .config-body { display:grid; grid-template-columns:1.2fr .8fr; min-height:660px; margin-top:1rem; border-top:1px solid var(--line); }
+      .config-watch { position:relative; display:grid; place-items:center; border-right:1px solid var(--line); overflow:hidden; }
+      .config-watch::before { content:""; position:absolute; width:80%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--watch) 22%, transparent), transparent 65%); }
+      .config-watch .watch-render { width:min(80%,530px); transform:rotate(-11deg); position:relative; z-index:1; }
+      .config-spec { padding:clamp(2rem,5vw,5.5rem); display:flex; flex-direction:column; justify-content:center; }
+      .config-spec .model { color:var(--muted); margin:0 0 .8rem; }
+      .config-spec h3 { margin:0; font:500 clamp(2.4rem,4vw,4rem)/.92 "Playfair Display",serif; letter-spacing:-.06em; }
+      .config-spec .model-price { margin:1.1rem 0 2.4rem; color:var(--acid); font:500 .75rem "DM Mono"; letter-spacing:.08em; }
+      .option-label { color:var(--muted); font:500 .58rem "DM Mono"; letter-spacing:.1em; text-transform:uppercase; }
+      .swatches { display:flex; gap:.7rem; margin:1rem 0 2.1rem; }
+      .swatch { position:relative; width:28px; height:28px; border-radius:50%; border:0; background:var(--swatch); cursor:pointer; transition:transform .25s var(--ease); }
+      .swatch::after { content:""; position:absolute; inset:-5px; border:1px solid var(--cream); border-radius:50%; opacity:0; transform:scale(.7); transition:.25s; }
+      .swatch:hover { transform:scale(1.12); }
+      .swatch.active::after { opacity:1; transform:scale(1); }
+      .feature-list { padding:0; margin:0 0 2rem; list-style:none; border-top:1px solid var(--line); }
+      .feature-list li { padding:.8rem 0; display:flex; justify-content:space-between; border-bottom:1px solid var(--line); color:var(--muted); font:400 .61rem "DM Mono"; letter-spacing:.06em; text-transform:uppercase; }
+      .feature-list strong { color:var(--cream); font-weight:500; }
+      .cta { position:relative; overflow:hidden; display:inline-flex; align-items:center; justify-content:space-between; gap:2rem; width:max-content; min-width:220px; padding:1rem 1.1rem 1rem 1.3rem; border:1px solid var(--cream); background:transparent; cursor:pointer; font:500 .65rem "DM Mono"; letter-spacing:.09em; text-transform:uppercase; transition:color .4s var(--ease); }
+      .cta::before { content:""; position:absolute; inset:0; background:var(--acid); transform:translateY(101%); transition:transform .4s var(--ease); z-index:0; }
+      .cta span, .cta b { position:relative; z-index:1; }
+      .cta b { font-size:1.15rem; font-weight:400; transition:transform .4s var(--ease); }
+      .cta:hover { color:var(--ink); border-color:var(--acid); }
+      .cta:hover::before { transform:translateY(0); }
+      .cta:hover b { transform:translateX(5px); }
+
+      .journal { padding: 8rem 3.4vw 0; background:var(--paper); color:var(--ink); }
+      .journal-top { display:flex; justify-content:space-between; align-items:end; margin-bottom:3.5rem; }
+      .journal h2 { margin:.7rem 0 0; font:500 clamp(3rem,5vw,5.8rem)/.9 "Playfair Display",serif; letter-spacing:-.065em; }
+      .article-grid { display:grid; grid-template-columns:1.1fr .9fr .9fr; gap:1px; background:rgba(10,10,11,.25); }
+      .article { background:var(--paper); min-height:410px; padding:1.5rem; display:flex; flex-direction:column; justify-content:space-between; transition:background .4s, color .4s; }
+      .article:hover { background:var(--ink); color:var(--cream); }
+      .article .article-number { color:rgba(10,10,11,.5); transition:color .4s; }
+      .article:hover .article-number { color:var(--acid); }
+      .article h3 { max-width:330px; margin:0; font:500 clamp(1.8rem,2.4vw,3rem)/1.02 "Playfair Display",serif; letter-spacing:-.05em; }
+      .article-footer { display:flex; justify-content:space-between; align-items:center; font:500 .6rem "DM Mono"; letter-spacing:.09em; text-transform:uppercase; }
+      .article .circle-arrow { display:grid; place-items:center; width:36px; height:36px; border:1px solid currentColor; border-radius:50%; font-size:1rem; transition:transform .35s var(--ease), background .35s, color .35s; }
+      .article:hover .circle-arrow { background:var(--acid); color:var(--ink); transform:rotate(-45deg); }
+
+      footer { position:relative; overflow:hidden; padding:6rem 3.4vw 1.5rem; background:var(--ink); }
+      .footer-top { display:flex; justify-content:space-between; gap:4rem; padding-bottom:5rem; }
+      .footer-top h2 { max-width:620px; margin:0; font:500 clamp(3rem,5vw,5.8rem)/.93 "Playfair Display",serif; letter-spacing:-.065em; }
+      .footer-top h2 em { color:var(--acid); }
+      .newsletter { width:min(100%,370px); align-self:end; }
+      .newsletter p { color:var(--muted); font-size:.74rem; line-height:1.6; }
+      .email-wrap { margin-top:1.3rem; display:flex; border-bottom:1px solid var(--cream); }
+      .email-wrap input { min-width:0; width:100%; padding:.8rem 0; border:0; outline:0; background:transparent; color:var(--cream); font:500 .65rem "DM Mono"; letter-spacing:.06em; }
+      .email-wrap button { border:0; background:transparent; cursor:pointer; font-size:1.1rem; }
+      .footer-logo { margin-left:-.06em; font:700 clamp(5.6rem,18.4vw,23rem)/.7 "Manrope",sans-serif; letter-spacing:-.115em; white-space:nowrap; color:var(--cream); }
+      .footer-bottom { display:flex; justify-content:space-between; padding-top:1.7rem; margin-top:2rem; border-top:1px solid var(--line); color:var(--muted); }
+      .footer-bottom div { display:flex; gap:1.6rem; }
+
+      .drawer { position:fixed; z-index:80; top:0; right:0; width:min(430px,100%); height:100svh; padding:1.5rem; background:var(--cream); color:var(--ink); transform:translateX(102%); transition:transform .55s var(--ease); display:flex; flex-direction:column; box-shadow:-20px 0 50px rgba(0,0,0,.25); }
+      .drawer.open { transform:translateX(0); }
+      .drawer-head { display:flex; justify-content:space-between; align-items:center; padding-bottom:1.2rem; border-bottom:1px solid rgba(10,10,11,.2); }
+      .drawer-head h3 { margin:0; font:500 1.7rem "Playfair Display",serif; }
+      .close-drawer { width:34px; height:34px; display:grid; place-items:center; border:1px solid rgba(10,10,11,.4); border-radius:50%; background:transparent; cursor:pointer; font-size:1.3rem; }
+      .cart-empty { flex:1; display:grid; place-content:center; text-align:center; color:rgba(10,10,11,.55); font-size:.75rem; line-height:1.7; }
+      .cart-item { display:none; padding:1.7rem 0; border-bottom:1px solid rgba(10,10,11,.18); }
+      .cart-item.show { display:flex; gap:1rem; }
+      .cart-thumb { width:80px; height:92px; display:grid; place-items:center; background:#d1cbc1; }
+      .cart-thumb svg { width:72px; }
+      .cart-info { flex:1; }
+      .cart-info h4 { margin:0 0 .5rem; font:500 1.15rem "Playfair Display",serif; }
+      .cart-info p { margin:0; color:rgba(10,10,11,.55); font:500 .58rem "DM Mono"; letter-spacing:.08em; }
+      .cart-price { margin-top:1.2rem !important; color:var(--ink)!important; }
+      .drawer-total { display:none; padding-top:1.4rem; }
+      .drawer-total.show { display:block; }
+      .total-line { display:flex; justify-content:space-between; margin-bottom:1.1rem; font:500 .65rem "DM Mono"; letter-spacing:.07em; text-transform:uppercase; }
+      .drawer .cta { width:100%; background:var(--ink); color:var(--cream); border-color:var(--ink); }
+      .drawer .cta:hover { color:var(--ink); }
+      .drawer .cta::before { background:var(--acid); }
+      .drawer-backdrop { position:fixed; inset:0; z-index:70; background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .4s; }
+      .drawer-backdrop.show { opacity:1; pointer-events:auto; }
+
+      .toast { position:fixed; z-index:110; left:50%; bottom:1.5rem; transform:translate(-50%, 150%); padding:.85rem 1rem; background:var(--acid); color:var(--ink); font:500 .63rem "DM Mono"; letter-spacing:.07em; text-transform:uppercase; transition:transform .45s var(--ease); box-shadow:0 12px 28px rgba(0,0,0,.25); }
+      .toast.show { transform:translate(-50%,0); }
+
+      .reveal { opacity:0; transform:translateY(35px); transition:opacity .9s var(--ease), transform .9s var(--ease); }
+      .reveal.in { opacity:1; transform:translateY(0); }
+      .split-line { overflow:hidden; }
+      @media (max-width: 800px) {
+        .cursor, .cursor-dot { display:none; }
+        .nav { height:72px; padding:0 1.2rem; }
+        .nav-links { position:fixed; inset:0; background:var(--ink); transform:translateX(100%); flex-direction:column; justify-content:center; align-items:center; gap:2rem; transition:transform .55s var(--ease); }
+        .nav-links a { font:500 2.5rem "Playfair Display",serif; letter-spacing:-.05em; color:var(--cream); }
+        body.menu-open .nav-links { transform:translateX(0); }
+        .menu-toggle { display:block!important; }
+        .nav-actions .search { display:none; }
+        .hero { min-height:840px; padding:100px 1.2rem 1.5rem; display:block; }
+        .hero-topline { top:92px; left:1.2rem; right:1.2rem; }
+        .hero-copy { position:absolute; z-index:3; left:1.2rem; bottom:8.5rem; padding:0; }
+        .hero-copy h1 { font-size:clamp(4.5rem, 19vw, 7rem); }
+        .hero-art { position:absolute; width:104vw; left:50%; top:49%; transform:translate(-50%,-50%); }
+        .hero-side { position:absolute; right:1.2rem; bottom:2rem; padding:0; }
+        .hero-side .eyebrow { display:none; }.hero-side .price { margin:0 0 1rem; }
+        .round-button { width:76px; height:76px; }
+        .hero-index, .vertical-copy { display:none; }
+        .intro { min-height:680px; padding:8rem 1.2rem 4rem; }
+        .intro-foot { display:block; align-self:auto; }.intro-foot p { margin-bottom:1.7rem; }
+        .collection { padding:5rem 1.2rem; }.collection-heading { display:block; margin-bottom:2.8rem; }.filters { margin-top:1.5rem; }
+        .product-grid { display:block; }.product { min-height:460px; border-right:0; border-bottom:1px solid rgba(10,10,11,.2); }.product:last-child { border-bottom:0; }
+        .quick { opacity:1; transform:translate(-50%,-50%); }
+        .atelier { display:block; }.atelier-image { min-height:500px; }.atelier-copy { padding:5rem 1.2rem; }
+        .configurator { padding:5rem 1.2rem 1.2rem; }.config-head { display:block; }.config-head .section-label { margin-top:1.3rem; }
+        .config-body { display:block; min-height:0; }.config-watch { height:470px; border-right:0; border-bottom:1px solid var(--line); }.config-spec { padding:3rem 0 2rem; }
+        .journal { padding:5rem 1.2rem 0; }.journal-top { display:block; }.journal-top .text-link { margin-top:1.5rem; }.article-grid { display:block; }.article { min-height:300px; border-bottom:1px solid rgba(10,10,11,.25); }
+        footer { padding:4rem 1.2rem 1.2rem; }.footer-top { display:block; padding-bottom:4rem; }.newsletter { margin-top:3rem; }.footer-bottom { flex-wrap:wrap; gap:1rem; }.footer-bottom div { gap:1rem; }
+      }
+      @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; scroll-behavior:auto!important; transition-duration:.01ms!important; } }
+
+      /* Art-direction reset: cinematic blue-black product story */
+      body { background: #030713; }
+      .noise { opacity: .055; }
+      .nav { height: 80px; background: linear-gradient(180deg, rgba(3,7,19,.88), rgba(3,7,19,0)); }
+      .nav.scrolled { background: rgba(3,7,19,.9); border-color: rgba(145,172,235,.2); }
+      .brand { font-family: "Space Grotesk", sans-serif; font-size: 1.45rem; letter-spacing: -.1em; }
+      .nav-links a { color: rgba(240,243,250,.65); }
+      .nav-links a:hover { color: #9dc0ff; }
+      .bag-count { background: #75a4ff; }
+
+      .hero {
+        isolation: isolate;
+        min-height: 100svh;
+        padding: 105px 5vw 2.5rem;
+        grid-template-columns: minmax(330px, .9fr) 1.1fr;
+        background:
+          radial-gradient(ellipse 70% 100% at 92% 50%, rgba(42,83,163,.30), transparent 62%),
+          radial-gradient(ellipse 35% 42% at 62% 75%, rgba(96,131,230,.18), transparent 70%),
+          linear-gradient(121deg, #02050d 7%, #071124 55%, #101b3c 100%);
+      }
+      .hero::before { z-index:-1; width: 95vw; height: 95vw; left: 72%; top: 56%; background: radial-gradient(circle, rgba(115,164,255,.22), rgba(3,7,19,0) 61%); }
+      .hero::after { content:""; position:absolute; z-index:-1; inset:0; pointer-events:none; opacity:.45; background:linear-gradient(90deg, transparent 0 49.8%, rgba(156,187,255,.18) 49.9% 50%, transparent 50.1%), linear-gradient(180deg, transparent 0 75%, rgba(156,187,255,.1) 75.1% 75.2%, transparent 75.3%); }
+      .hero-topline { top: 99px; left: 5vw; right: 5vw; color: rgba(206,220,249,.58); }
+      .hero-copy { align-self:center; padding: 6vh 0 2vh; }
+      .hero-copy .eyebrow { display: inline-flex; align-items:center; gap:.6rem; color: #a9c5ff; }
+      .hero-copy .eyebrow::before { content:""; display:block; width:30px; height:1px; background:currentColor; }
+      .hero-copy h1 {
+        max-width: 650px;
+        margin: 1.4rem 0 1.5rem;
+        font: 700 clamp(4.4rem, 8.65vw, 10.2rem)/.76 "Space Grotesk", "Manrope", sans-serif;
+        letter-spacing: -.105em;
+        text-transform: uppercase;
+      }
+      .hero-copy h1 em { display:inline-block; color: transparent; font-family:inherit; font-style:normal; font-weight:700; -webkit-text-stroke: 1.5px rgba(224,235,255,.9); }
+      .hero-copy p { max-width: 290px; color: rgba(221,231,251,.68); }
+      .hero-art { width: min(51vw, 690px); margin-left: 6vw; align-self:center; justify-self:start; }
+      .hero-art::before { inset:-4% -8%; background: radial-gradient(ellipse, rgba(111,156,255,.32), transparent 63%); }
+      .watch-render { filter: drop-shadow(-14px 42px 38px rgba(0,0,0,.8)) drop-shadow(0 0 30px rgba(81,131,255,.22)); }
+      .hero-art:hover .watch-render { filter: drop-shadow(-15px 56px 43px rgba(0,0,0,.95)) drop-shadow(0 0 45px rgba(93,141,255,.4)); }
+      .hero-side { position:absolute; z-index:2; right:5vw; bottom:2.65rem; padding:0; display:flex; align-items:center; gap:1.1rem; }
+      .hero-side .eyebrow { color:rgba(220,232,255,.68); }
+      .hero-side .price { margin: .35rem 0 0; color:#e6edff; }
+      .round-button { width: 76px; height: 76px; border-color: rgba(206,224,255,.7); }
+      .round-button:hover { background:#75a4ff; border-color:#75a4ff; }
+      .hero-index { left:5vw; bottom:2.8rem; color:rgba(218,230,255,.6); }.hero-index .track { background:rgba(192,214,255,.24); }.hero-index .track::after { background:#75a4ff; }
+      .vertical-copy { right:1.25vw; color:rgba(195,214,255,.54); }
+
+      .marquee { position:relative; z-index:1; padding:1.15rem 0; border-color:rgba(145,172,235,.22); background:#060d1d; }
+      .marquee-inner { font: 600 clamp(1.4rem,2.5vw,3rem)/1 "Space Grotesk",sans-serif; letter-spacing:-.07em; }
+      .marquee em, .marquee .star { color:#75a4ff; }
+      .intro { min-height:80vh; padding:13vh 10vw 9vh; background:linear-gradient(145deg,#060d1d,#090e1b); }
+      .section-label::before { background:#75a4ff; }
+      .intro h2, .atelier-copy h2, .config-head h2, .journal h2, .footer-top h2 { font-family:"Space Grotesk", "Manrope", sans-serif; font-weight:600; letter-spacing:-.09em; }
+      .intro h2 em { color:#89b1ff; font-style:normal; }
+      .text-link:hover { color:#8db5ff; }
+
+      .collection { background:#080f20; color:var(--cream); padding-top:8rem; }
+      .collection .section-label { color:rgba(221,232,252,.55); }
+      .collection h2 { font-family:"Space Grotesk", sans-serif; font-weight:600; letter-spacing:-.09em; }
+      .filter { border-color:rgba(207,222,251,.28); color:var(--cream); }.filter:hover, .filter.active { background:#eaf1ff; color:#07101f; }
+      .product-grid { border-color:rgba(176,201,248,.22); }.product { border-color:rgba(176,201,248,.22); background:linear-gradient(145deg,rgba(105,145,227,.08),transparent 50%); }
+      .product[data-category="limited"]::after { border-color:rgba(219,231,255,.42); }.product-type { color:rgba(225,234,251,.56); }.product-price { color:#b9d0ff; }
+      .quick { background:#8db5ff; }.product:hover .product-visual { transform:scale(1.08) rotate(-5deg) translateY(-5px); }
+
+      .atelier { background:#060a14; }.atelier-image { background:radial-gradient(circle at 55% 44%, #33538f, #121a2e 42%, #050810 73%); }.atelier-image::after { background:linear-gradient(120deg, transparent 26%, rgba(141,183,255,.26) 47%, transparent 53%); }.atelier-copy h2 em { color:#8cb4ff; }
+      .atelier-stamp { border-color:rgba(172,202,255,.6); }.detail button i { color:#8db5ff; }
+      .configurator { background:#050a16; }.config-watch { background:radial-gradient(circle at 50% 50%, rgba(71,118,217,.13), transparent 55%); }.config-watch::before { background:radial-gradient(circle, color-mix(in srgb, var(--watch) 26%, transparent), transparent 65%); }
+      .config-spec .model-price { color:#8cb4ff; }.swatch::after { border-color:#b8d2ff; }.cta::before { background:#8db5ff; }.cta:hover { border-color:#8db5ff; }
+
+      .journal { background:#0b1326; color:var(--cream); }.article-grid { background:rgba(182,205,248,.22); }.article { background:#0b1326; }.article:hover { background:#8db5ff; color:#061022; }.article .article-number { color:rgba(205,222,255,.48); }.article:hover .article-number { color:#122444; }.article:hover .circle-arrow { background:#061022; color:#dce9ff; }
+      footer { background:#02050c; }.footer-logo { color:#d9e7ff; }.email-wrap { border-color:#91b5fc; }
+
+      @media (max-width:800px) {
+        .nav { background:rgba(3,7,19,.9); }
+        .nav-links { background:#050a16; }.nav-links a { font-family:"Space Grotesk",sans-serif; font-weight:600; }
+        .hero { min-height:820px; padding:95px 1.2rem 1.5rem; background:radial-gradient(ellipse 100% 60% at 60% 48%, rgba(48,89,179,.34), transparent 67%),linear-gradient(145deg,#02050d,#0a1630); }
+        .hero::after { background:linear-gradient(180deg, transparent 0 72%, rgba(156,187,255,.12) 72.1% 72.25%, transparent 72.4%); }
+        .hero-topline { top:88px; left:1.2rem; right:1.2rem; font-size:.55rem; }.hero-topline span:last-child { display:none; }
+        .hero-copy { bottom:9.2rem; }.hero-copy h1 { font-size:clamp(4.2rem, 18.2vw, 6.8rem); margin:1rem 0 1.2rem; }.hero-copy h1 em { -webkit-text-stroke:1px #e8efff; }
+        .hero-art { width:124vw; max-width:none; top:47%; left:60%; margin:0; }.hero-side { right:1.2rem; bottom:1.55rem; }.hero-side .price { display:none; }.round-button { width:64px; height:64px; }
+        .collection { padding-top:5rem; }.product { background:linear-gradient(145deg,rgba(105,145,227,.12),transparent 48%); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="noise"></div><div class="cursor"></div><div class="cursor-dot"></div><div class="progress"></div>
+    <div class="preloader"><div class="preloader-logo"><span>AUREL<small>EST. 1988</small></span></div><div class="preload-line"></div></div>
+
+    <header class="nav">
+      <a class="brand magnetic" href="#top">AUREL<small>TM</small></a>
+      <nav class="nav-links" aria-label="Ana navigasyon">
+        <a href="#collection">Koleksiyon</a><a href="#atelier">Atölye</a><a href="#configure">Kişiselleştir</a><a href="#journal">Journal</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="search magnetic" aria-label="Ara">ARA</button>
+        <button class="bag magnetic" id="openCart" aria-label="Sepeti aç">BAG <span class="bag-count" id="bagCount">0</span></button>
+        <button class="menu-toggle" id="menuToggle" aria-label="Menüyü aç">MENÜ</button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-topline mono"><span>İstanbul / 41°01' N</span><span>09:41:37 GMT+3</span></div>
+        <div class="hero-copy reveal">
+          <div class="eyebrow">01 — Aurel story</div>
+          <h1>The<br>story<br><em>of time.</em></h1>
+          <p>Zamanı ölçen değil, zamanı taşıyanlar için tasarlanan mekanik bir hikâye.</p>
+        </div>
+        <div class="hero-art" role="img" aria-label="Çelik kaplama Aurel Horizon saati">
+          <svg class="watch-render" viewBox="0 0 500 650" role="img">
+            <defs>
+              <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eff5ff"/><stop offset=".22" stop-color="var(--watch)"/><stop offset=".5" stop-color="#303e59"/><stop offset=".72" stop-color="var(--watch)"/><stop offset="1" stop-color="#d0dcf0"/></linearGradient>
+              <radialGradient id="glass" cx="36%" cy="27%"><stop stop-color="#ffffff" stop-opacity=".3"/><stop offset=".55" stop-color="#ffffff" stop-opacity=".04"/><stop offset="1" stop-color="#000000" stop-opacity=".27"/></radialGradient>
+            </defs>
+            <g transform="translate(0 6)">
+              <path class="watch-metal" d="M183 0h134l-10 168H193L183 0zM192 483h116l10 167H182l10-167z"/>
+              <path fill="#25160e" opacity=".55" d="M214 0h25l-5 168h-27L214 0zM270 483h25l9 167h-27l-7-167z"/>
+              <rect x="169" y="150" width="162" height="354" rx="78" class="watch-metal"/>
+              <rect x="174" y="155" width="152" height="344" rx="74" fill="#4a2c18" opacity=".5"/>
+              <circle cx="250" cy="326" r="139" class="watch-dial" stroke="var(--watch)" stroke-width="5"/>
+              <circle cx="250" cy="326" r="128" fill="url(#glass)" stroke="#ffffff" stroke-opacity=".17"/>
+              <g class="watch-accent" fill="none" stroke-width="2" opacity=".85">
+                <path d="M250 204v11M311 220l-5 10M356 265l-10 5M372 326h-11M356 387l-10-5M311 432l-5-10M250 448v-11M189 432l5-10M144 387l10-5M128 326h11M144 265l10 5M189 220l5 10"/>
+              </g>
+              <text x="250" y="278" text-anchor="middle" fill="#eae6d9" font-family="DM Mono, monospace" font-size="12" letter-spacing="3">AUREL</text>
+              <text x="250" y="370" text-anchor="middle" fill="#eae6d9" font-family="DM Mono, monospace" font-size="7" letter-spacing="1.5">CHRONOMÈTRE</text>
+              <g class="watch-accent" fill="none" stroke-width="6"><path class="hour" d="M250 326 L225 289"/><path class="minute" d="M250 326 L294 266"/></g>
+              <circle cx="250" cy="326" r="8" class="watch-fill"/><circle cx="250" cy="326" r="3" fill="#151515"/>
+              <circle cx="250" cy="326" r="50" fill="none" stroke="#f5eedb" stroke-opacity=".28"/><circle cx="250" cy="326" r="43" fill="none" stroke="#f5eedb" stroke-opacity=".17" stroke-dasharray="1 4"/>
+              <rect x="316" y="296" width="17" height="58" rx="6" class="watch-metal"/><rect x="323" y="312" width="16" height="25" rx="5" class="watch-metal"/>
+            </g>
+          </svg>
+        </div>
+        <div class="hero-side reveal">
+          <div class="eyebrow">Horizon 01 / Automatic</div><span class="price">₺ 248.000</span>
+          <button class="round-button magnetic" data-scroll="#collection" aria-label="Koleksiyonu keşfet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v17M5 13l7 7 7-7"/></svg></button>
+        </div>
+        <div class="hero-index mono"><span>01</span><div class="track"></div><span>03</span></div><div class="vertical-copy mono">AUREL / HOLD YOUR TIME</div>
+      </section>
+
+      <div class="marquee"><div class="marquee-inner"><span>MADE FOR THE <em>MOMENT</em></span><span class="star">✳</span><span>MADE FOR THE <em>MOMENT</em></span><span class="star">✳</span><span>MADE FOR THE <em>MOMENT</em></span><span class="star">✳</span><span>MADE FOR THE <em>MOMENT</em></span><span class="star">✳</span></div></div>
+
+      <section class="intro">
+        <div class="section-label eyebrow reveal">AUREL / 1988'DEN BERİ</div>
+        <h2 class="reveal">Her saniye, <em>imzanızın</em> bir parçası olabilir.</h2>
+        <div class="intro-foot reveal"><p>Aurel, mekanik ustalığı çağdaş çizgilerle bir araya getirir. Her saat, yalnızca zamanı göstermez — ona nasıl yaklaştığınızı anlatır.</p><a class="text-link magnetic" href="#atelier">Hikâyemiz <span>→</span></a></div>
+      </section>
+
+      <section class="collection" id="collection">
+        <div class="collection-heading reveal"><div><div class="section-label eyebrow">02 — İmza Parçalar</div><h2>İkonik olanı<br>seçin.</h2></div><div class="filters"><button class="filter active" data-filter="all">Tümü</button><button class="filter" data-filter="automatic">Automatic</button><button class="filter" data-filter="limited">Limited</button></div></div>
+        <div class="product-grid">
+          <article class="product reveal" data-category="automatic" data-name="Horizon 01" data-price="₺ 248.000" data-color="#d6a76b"><div class="product-meta"><span>01 / 03</span><span>40 MM</span></div><div class="product-visual"><svg class="mini-watch" viewBox="0 0 300 390"><defs><linearGradient id="pGold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0b1"/><stop offset=".5" stop-color="#b97c42"/><stop offset="1" stop-color="#6c391b"/></linearGradient></defs><path fill="url(#pGold)" d="M108 0h84l-8 90h-68L108 0zm8 300h68l8 90h-84l8-90z"/><rect x="85" y="72" width="130" height="246" rx="62" fill="url(#pGold)"/><circle cx="150" cy="195" r="102" fill="#151615" stroke="#e2b477" stroke-width="4"/><circle cx="150" cy="195" r="91" fill="none" stroke="#fff" stroke-opacity=".16"/><g stroke="#e2b477" stroke-width="2"><path d="M150 102v10M196 114l-5 9M230 149l-9 5M242 195h-10M230 241l-9-5M196 276l-5-9M150 288v-10M104 276l5-9M70 241l9-5M58 195h10M70 149l9 5M104 114l5 9"/></g><text x="150" y="164" text-anchor="middle" fill="#eee" font-family="monospace" font-size="9" letter-spacing="2">AUREL</text><path d="M150 195l-21-35M150 195l31-44" stroke="#e2b477" stroke-width="5" stroke-linecap="round"/><circle cx="150" cy="195" r="7" fill="#e2b477"/></svg></div><button class="quick magnetic">İncele</button><div class="product-info"><div><h3 class="product-name">Horizon 01</h3><span class="product-type">Automatic / Gold</span></div><span class="product-price">₺248K</span></div></article>
+          <article class="product reveal" data-category="limited" data-name="Solstice" data-price="₺ 315.000" data-color="#8d9b96"><div class="product-meta"><span>02 / 03</span><span>38 MM</span></div><div class="product-visual"><svg class="mini-watch" viewBox="0 0 300 390"><defs><linearGradient id="pSteel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f2ed"/><stop offset=".25" stop-color="#a6aaa5"/><stop offset=".55" stop-color="#4f5752"/><stop offset="1" stop-color="#d9dbd7"/></linearGradient></defs><path fill="url(#pSteel)" d="M108 0h84l-8 90h-68L108 0zm8 300h68l8 90h-84l8-90z"/><rect x="85" y="72" width="130" height="246" rx="62" fill="url(#pSteel)"/><circle cx="150" cy="195" r="102" fill="#26312f" stroke="#c4d3c9" stroke-width="4"/><circle cx="150" cy="195" r="91" fill="none" stroke="#fff" stroke-opacity=".16"/><g stroke="#c4d3c9" stroke-width="2"><path d="M150 102v10M196 114l-5 9M230 149l-9 5M242 195h-10M230 241l-9-5M196 276l-5-9M150 288v-10M104 276l5-9M70 241l9-5M58 195h10M70 149l9 5M104 114l5 9"/></g><text x="150" y="164" text-anchor="middle" fill="#eee" font-family="monospace" font-size="9" letter-spacing="2">AUREL</text><path d="M150 195l17-42M150 195l-42 20" stroke="#c4d3c9" stroke-width="5" stroke-linecap="round"/><circle cx="150" cy="195" r="7" fill="#c4d3c9"/></svg></div><button class="quick magnetic">İncele</button><div class="product-info"><div><h3 class="product-name">Solstice</h3><span class="product-type">Limited / Steel</span></div><span class="product-price">₺315K</span></div></article>
+          <article class="product reveal" data-category="automatic" data-name="Nocturne" data-price="₺ 286.000" data-color="#8f3838"><div class="product-meta"><span>03 / 03</span><span>42 MM</span></div><div class="product-visual"><svg class="mini-watch" viewBox="0 0 300 390"><defs><linearGradient id="pBlack" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8a8d89"/><stop offset=".28" stop-color="#222522"/><stop offset=".65" stop-color="#060707"/><stop offset="1" stop-color="#797d78"/></linearGradient></defs><path fill="url(#pBlack)" d="M108 0h84l-8 90h-68L108 0zm8 300h68l8 90h-84l8-90z"/><rect x="85" y="72" width="130" height="246" rx="62" fill="url(#pBlack)"/><circle cx="150" cy="195" r="102" fill="#111" stroke="#8f3838" stroke-width="4"/><circle cx="150" cy="195" r="91" fill="none" stroke="#fff" stroke-opacity=".16"/><g stroke="#9e4141" stroke-width="2"><path d="M150 102v10M196 114l-5 9M230 149l-9 5M242 195h-10M230 241l-9-5M196 276l-5-9M150 288v-10M104 276l5-9M70 241l9-5M58 195h10M70 149l9 5M104 114l5 9"/></g><text x="150" y="164" text-anchor="middle" fill="#eee" font-family="monospace" font-size="9" letter-spacing="2">AUREL</text><path d="M150 195l-30-33M150 195l48 8" stroke="#a94747" stroke-width="5" stroke-linecap="round"/><circle cx="150" cy="195" r="7" fill="#a94747"/></svg></div><button class="quick magnetic">İncele</button><div class="product-info"><div><h3 class="product-name">Nocturne</h3><span class="product-type">Automatic / Black</span></div><span class="product-price">₺286K</span></div></article>
+        </div>
+      </section>
+
+      <section class="atelier" id="atelier"><div class="atelier-image"><svg class="movement" viewBox="0 0 500 500"><defs><radialGradient id="gear" cx="35%" cy="25%"><stop stop-color="#eee1b9"/><stop offset=".45" stop-color="#bf9e62"/><stop offset=".76" stop-color="#79552f"/><stop offset="1" stop-color="#26170e"/></radialGradient><linearGradient id="bridge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e6d8b0"/><stop offset=".5" stop-color="#62401f"/><stop offset="1" stop-color="#b99052"/></linearGradient></defs><circle cx="250" cy="250" r="205" fill="#16120e" stroke="#a47a44" stroke-width="4"/><g fill="url(#gear)" stroke="#f3dea8" stroke-opacity=".4" stroke-width="3"><circle cx="170" cy="300" r="90"/><circle cx="333" cy="177" r="80"/><circle cx="320" cy="335" r="53"/><circle cx="171" cy="145" r="45"/></g><g fill="none" stroke="#3b2816" stroke-width="10"><circle cx="170" cy="300" r="63"/><circle cx="333" cy="177" r="54"/><circle cx="320" cy="335" r="32"/><circle cx="171" cy="145" r="25"/></g><path d="M90 112C180 49 317 51 414 125L376 160C302 105 211 109 128 158zM89 382c95 69 247 72 331-3l-26-42c-86 48-198 47-279 0z" fill="url(#bridge)" opacity=".9"/><circle cx="250" cy="250" r="30" fill="url(#gear)"/><path d="M250 250L335 177M250 250L170 300M250 250L320 335" stroke="#e9d7a4" stroke-width="6"/></svg><div class="atelier-stamp">MADE<br>BY HAND<br>IN<br>ISTANBUL</div></div><div class="atelier-copy"><div class="section-label eyebrow reveal">03 — İç dünya</div><h2 class="reveal">Görünmeyen yerde de <em>kusursuz.</em></h2><p class="reveal">Her Aurel mekanizması, atölyemizde birden fazla elden geçer. 178 ayrı bileşen; tek, kesintisiz bir hareket için bir araya gelir.</p><div class="details reveal"><div class="detail open"><button>01 / Mekanik kalibre <i>+</i></button><p><span>İnce ayarlı, 72 saat güç rezervli A-04 otomatik mekanizma. Her kalibre beş farklı pozisyonda test edilir.</span></p></div><div class="detail"><button>02 / İmza bitişler <i>+</i></button><p><span>Fırçalanmış yüzeyler, aynalı pahlar ve ışığı her açıdan farklı yakalayan elle uygulanmış detaylar.</span></p></div><div class="detail"><button>03 / Yaşam boyu bakım <i>+</i></button><p><span>Zamanla kurduğunuz bağ kadar uzun süren, uluslararası iki yıllık bakım ve servis programı.</span></p></div></div></div></section>
+
+      <section class="configurator" id="configure"><div class="config-head reveal"><div><div class="section-label eyebrow">04 — Size özel</div><h2>Renginizi<br>bulun.</h2></div><div class="eyebrow">HORIZON 01 / 40 MM</div></div><div class="config-body"><div class="config-watch"><svg class="watch-render" viewBox="0 0 500 650" aria-label="Kişiselleştirilebilir saat ön izlemesi"><defs><linearGradient id="metal2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2bd"/><stop offset=".22" stop-color="var(--watch)"/><stop offset=".5" stop-color="var(--watch-dark)"/><stop offset=".72" stop-color="var(--watch)"/><stop offset="1" stop-color="#ffe3a4"/></linearGradient><radialGradient id="glass2" cx="36%" cy="27%"><stop stop-color="#ffffff" stop-opacity=".3"/><stop offset=".55" stop-color="#ffffff" stop-opacity=".04"/><stop offset="1" stop-color="#000000" stop-opacity=".27"/></radialGradient></defs><g transform="translate(0 6)"><path class="watch-metal" style="fill:url(#metal2)" d="M183 0h134l-10 168H193L183 0zM192 483h116l10 167H182l10-167z"/><path fill="#25160e" opacity=".55" d="M214 0h25l-5 168h-27L214 0zM270 483h25l9 167h-27l-7-167z"/><rect x="169" y="150" width="162" height="354" rx="78" class="watch-metal" style="fill:url(#metal2)"/><rect x="174" y="155" width="152" height="344" rx="74" fill="#4a2c18" opacity=".5"/><circle cx="250" cy="326" r="139" class="watch-dial" stroke="var(--watch)" stroke-width="5"/><circle cx="250" cy="326" r="128" fill="url(#glass2)" stroke="#ffffff" stroke-opacity=".17"/><g class="watch-accent" fill="none" stroke-width="2" opacity=".85"><path d="M250 204v11M311 220l-5 10M356 265l-10 5M372 326h-11M356 387l-10-5M311 432l-5-10M250 448v-11M189 432l5-10M144 387l10-5M128 326h11M144 265l10 5M189 220l5 10"/></g><text x="250" y="278" text-anchor="middle" fill="#eae6d9" font-family="DM Mono, monospace" font-size="12" letter-spacing="3">AUREL</text><text x="250" y="370" text-anchor="middle" fill="#eae6d9" font-family="DM Mono, monospace" font-size="7" letter-spacing="1.5">CHRONOMÈTRE</text><g class="watch-accent" fill="none" stroke-width="6"><path class="hour" d="M250 326 L225 289"/><path class="minute" d="M250 326 L294 266"/></g><circle cx="250" cy="326" r="8" class="watch-fill"/><circle cx="250" cy="326" r="3" fill="#151515"/><circle cx="250" cy="326" r="50" fill="none" stroke="#f5eedb" stroke-opacity=".28"/><circle cx="250" cy="326" r="43" fill="none" stroke="#f5eedb" stroke-opacity=".17" stroke-dasharray="1 4"/><rect x="316" y="296" width="17" height="58" rx="6" class="watch-metal" style="fill:url(#metal2)"/><rect x="323" y="312" width="16" height="25" rx="5" class="watch-metal" style="fill:url(#metal2)"/></g></svg></div><div class="config-spec"><p class="model mono">AUREL / H-01</p><h3 id="configName">Horizon 01<br>Champagne</h3><p class="model-price" id="configPrice">₺ 248.000</p><span class="option-label">Kasa tonu — <b id="toneName">Champagne Gold</b></span><div class="swatches"><button class="swatch active" aria-label="Champagne Gold" data-name="Champagne Gold" data-color="#d6a76b" data-dark="#865833" data-dial="#101212" style="--swatch:#d6a76b"></button><button class="swatch" aria-label="Graphite Steel" data-name="Graphite Steel" data-color="#a3aaa4" data-dark="#454c47" data-dial="#16211e" style="--swatch:#a3aaa4"></button><button class="swatch" aria-label="Nocturne Black" data-name="Nocturne Black" data-color="#767875" data-dark="#212321" data-dial="#111111" style="--swatch:#1b1c1b"></button><button class="swatch" aria-label="Bordeaux" data-name="Bordeaux" data-color="#a95454" data-dark="#552323" data-dial="#201213" style="--swatch:#9d3e44"></button></div><ul class="feature-list"><li><span>Kasa</span><strong>316L Paslanmaz çelik</strong></li><li><span>Cam</span><strong>Safir kristal</strong></li><li><span>Güç rezervi</span><strong>72 saat</strong></li></ul><button class="cta magnetic" id="addToCart"><span>Sepete ekle</span><b>↗</b></button></div></div></section>
+
+      <section class="journal" id="journal"><div class="journal-top reveal"><div><div class="section-label eyebrow">05 — Aurel Journal</div><h2>Zamanın etrafında<br>dönen şeyler.</h2></div><a class="text-link magnetic" href="#top">Tüm yazılar <span>→</span></a></div><div class="article-grid"><a href="#journal" class="article reveal"><span class="article-number mono">01 / SPOTLIGHT</span><h3>Bir zanaatkarın masasından, bileğinize.</h3><div class="article-footer"><span>04.06.2025</span><span class="circle-arrow">↗</span></div></a><a href="#journal" class="article reveal"><span class="article-number mono">02 / NOTES</span><h3>İyi bir saatin sessiz detayları.</h3><div class="article-footer"><span>19.05.2025</span><span class="circle-arrow">↗</span></div></a><a href="#journal" class="article reveal"><span class="article-number mono">03 / PLACES</span><h3>İstanbul'da zamanın yavaşladığı 5 yer.</h3><div class="article-footer"><span>02.05.2025</span><span class="circle-arrow">↗</span></div></a></div></section>
+    </main>
+
+    <footer><div class="footer-top"><h2 class="reveal">Zamanınız için<br><em>bir yer açın.</em></h2><div class="newsletter reveal"><p>Yeni koleksiyonlar, atölye notları ve yalnızca abonelere özel etkinlikler.</p><form class="email-wrap" id="newsletter"><input type="email" required placeholder="E-POSTA ADRESİNİZ" aria-label="E-posta adresiniz"><button aria-label="Abone ol">→</button></form></div></div><div class="footer-logo">AUREL</div><div class="footer-bottom mono"><span>© 2025 AUREL HORLOGERIE</span><div><a href="#top">Instagram</a><a href="#top">Tiktok</a><a href="#top">İletişim</a></div><span>ISTANBUL / TR</span></div></footer>
+
+    <div class="drawer-backdrop" id="backdrop"></div><aside class="drawer" id="drawer" aria-label="Alışveriş sepeti"><div class="drawer-head"><h3>Sepetiniz</h3><button class="close-drawer" id="closeCart" aria-label="Sepeti kapat">×</button></div><div class="cart-empty" id="cartEmpty">Henüz seçilmiş bir parça yok.<br>Zamanınızı bekleyen bir saat var.</div><div class="cart-item" id="cartItem"><div class="cart-thumb"><svg viewBox="0 0 100 130"><path fill="var(--watch)" d="M32 0h36l-4 30H36L32 0zm4 100h28l4 30H32l4-30z"/><rect x="23" y="23" width="54" height="84" rx="25" fill="var(--watch)"/><circle cx="50" cy="65" r="37" fill="var(--watch-dial)" stroke="var(--watch)" stroke-width="2"/><path d="M50 65l-10-15M50 65l16-20" stroke="var(--watch)" stroke-width="3"/></svg></div><div class="cart-info"><h4 id="cartName">Horizon 01</h4><p id="cartTone">CHAMPAGNE GOLD / 40 MM</p><p class="cart-price" id="cartPrice">₺ 248.000</p></div></div><div class="drawer-total" id="drawerTotal"><div class="total-line"><span>Toplam</span><span id="totalPrice">₺ 248.000</span></div><button class="cta"><span>Güvenli ödeme</span><b>↗</b></button></div></aside><div class="toast" id="toast">Sepetinize eklendi</div>
+
+    <script>
+      const $ = (s, parent = document) => parent.querySelector(s);
+      const $$ = (s, parent = document) => [...parent.querySelectorAll(s)];
+      const body = document.body;
+      const root = document.documentElement;
+      const cursor = $('.cursor'), dot = $('.cursor-dot');
+      let cursorX = -100, cursorY = -100, dotX = -100, dotY = -100;
+
+      window.addEventListener('load', () => setTimeout(() => $('.preloader').classList.add('hide'), 900));
+      window.addEventListener('mousemove', (e) => { cursorX = e.clientX; cursorY = e.clientY; });
+      const cursorLoop = () => { dotX += (cursorX-dotX)*.34; dotY += (cursorY-dotY)*.34; cursor.style.transform = `translate(${cursorX}px,${cursorY}px) translate(-50%,-50%)`; dot.style.transform = `translate(${dotX}px,${dotY}px) translate(-50%,-50%)`; requestAnimationFrame(cursorLoop); };
+      cursorLoop();
+      $$('a,button,input,.product').forEach(el => { el.addEventListener('mouseenter', () => body.classList.add('cursor-hover')); el.addEventListener('mouseleave', () => body.classList.remove('cursor-hover')); });
+
+      window.addEventListener('scroll', () => { const max = document.documentElement.scrollHeight - innerHeight; $('.progress').style.width = `${(scrollY / max) * 100}%`; $('.nav').classList.toggle('scrolled', scrollY > 35); }, {passive:true});
+      const observer = new IntersectionObserver(entries => entries.forEach(entry => { if(entry.isIntersecting) { entry.target.classList.add('in'); observer.unobserve(entry.target); } }), {threshold:.14});
+      $$('.reveal').forEach(el => observer.observe(el));
+      $$('.magnetic').forEach(el => { el.addEventListener('mousemove', e => { const r=el.getBoundingClientRect(), x=e.clientX-r.left-r.width/2, y=e.clientY-r.top-r.height/2; el.style.transform=`translate(${x*.12}px,${y*.12}px)`; }); el.addEventListener('mouseleave', () => el.style.transform=''); });
+
+      $('#menuToggle').addEventListener('click', () => { body.classList.toggle('menu-open'); $('#menuToggle').textContent = body.classList.contains('menu-open') ? 'KAPAT' : 'MENÜ'; });
+      $$('.nav-links a').forEach(link => link.addEventListener('click', () => { body.classList.remove('menu-open'); $('#menuToggle').textContent = 'MENÜ'; }));
+      $$('[data-scroll]').forEach(btn => btn.addEventListener('click', () => $(btn.dataset.scroll).scrollIntoView({behavior:'smooth'})));
+
+      $$('.filter').forEach(button => button.addEventListener('click', () => { $$('.filter').forEach(b=>b.classList.remove('active')); button.classList.add('active'); const wanted=button.dataset.filter; $$('.product').forEach(card => { const visible=wanted==='all'||card.dataset.category===wanted; card.style.opacity=visible?'1':'.16'; card.style.transform=visible?'scale(1)':'scale(.96)'; card.style.pointerEvents=visible?'auto':'none'; }); }));
+      $$('.detail button').forEach(btn => btn.addEventListener('click', () => btn.parentElement.classList.toggle('open')));
+
+      const palette = { 'Champagne Gold': { color:'#d6a76b', dark:'#865833', dial:'#101212', price:'₺ 248.000' }, 'Graphite Steel': { color:'#a3aaa4', dark:'#454c47', dial:'#16211e', price:'₺ 255.000' }, 'Nocturne Black': { color:'#767875', dark:'#212321', dial:'#111111', price:'₺ 262.000' }, 'Bordeaux': { color:'#a95454', dark:'#552323', dial:'#201213', price:'₺ 269.000' } };
+      let selectedTone='Champagne Gold';
+      $$('.swatch').forEach(swatch => swatch.addEventListener('click', () => { $$('.swatch').forEach(s=>s.classList.remove('active')); swatch.classList.add('active'); selectedTone=swatch.dataset.name; const data=palette[selectedTone]; root.style.setProperty('--watch',data.color); root.style.setProperty('--watch-dark',data.dark); root.style.setProperty('--watch-dial',data.dial); $('#toneName').textContent=selectedTone; $('#configName').innerHTML=`Horizon 01<br>${selectedTone}`; $('#configPrice').textContent=data.price; }));
+
+      const drawer=$('#drawer'), backdrop=$('#backdrop'), toast=$('#toast');
+      const openCart = () => { drawer.classList.add('open'); backdrop.classList.add('show'); body.classList.add('drawer-open'); };
+      const closeCart = () => { drawer.classList.remove('open'); backdrop.classList.remove('show'); body.classList.remove('drawer-open'); };
+      $('#openCart').addEventListener('click',openCart); $('#closeCart').addEventListener('click',closeCart); backdrop.addEventListener('click',closeCart);
+      const addItem=(name='Horizon 01', price=null, tone=selectedTone) => { const data=palette[tone] || palette['Champagne Gold']; const finalPrice=price || data.price; $('#cartEmpty').style.display='none'; $('#cartItem').classList.add('show'); $('#drawerTotal').classList.add('show'); $('#cartName').textContent=name; $('#cartTone').textContent=`${tone.toUpperCase()} / 40 MM`; $('#cartPrice').textContent=finalPrice; $('#totalPrice').textContent=finalPrice; $('#bagCount').textContent='1'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2200); openCart(); };
+      $('#addToCart').addEventListener('click',()=>addItem());
+      $$('.quick').forEach(btn=>btn.addEventListener('click',e=>{ e.stopPropagation(); const card=btn.closest('.product'); addItem(card.dataset.name,card.dataset.price, card.dataset.name==='Solstice'?'Graphite Steel':card.dataset.name==='Nocturne'?'Bordeaux':'Champagne Gold'); }));
+      $('#newsletter').addEventListener('submit',e=>{ e.preventDefault(); e.target.reset(); toast.textContent='Listeye hoş geldiniz'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2200); });
+      $('.search').addEventListener('click',()=>{ $('#collection').scrollIntoView({behavior:'smooth'}); toast.textContent='Koleksiyonda aramaya başlayın'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1800); });
+    </script>
+  </body>
+</html>
